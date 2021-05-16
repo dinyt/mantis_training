@@ -3,6 +3,7 @@ from fixture.db import DbFixture
 import pytest
 import json
 import os.path
+import ftputil
 
 fixture = None
 target = None
@@ -21,15 +22,18 @@ def app(request):
     global fixture
 
     browser = request.config.getoption("--browser")
+
     web_config = load_config(request.config.getoption("--target"))["web"]
 
     if fixture is None or not fixture.is_valid():
-        fixture = Application(browser=browser, base_url=web_config["baseUrl"])
+        #fixture = Application(browser=browser, base_url=web_config["baseUrl"])
+        #fixture = Application(browser=browser, base_url=config["web"]["baseUrl"])
+        fixture = Application(browser=browser, config=config, base_url=web_config["baseUrl"])
 
     #fixture.session.ensure_login(username=web_config["username"], password=web_config["password"])
     return fixture
 
-# scope - выполнение тестов в одной сессии
+# scope - выполнение тестов в одной сессии (в самом начале выполнения автотестов)
 # autouse - срабатывание фикстуры автоматически
 @pytest.fixture(scope="session", autouse=True)
 def stop(request):
@@ -38,6 +42,38 @@ def stop(request):
         fixture.destroy()
     request.addfinalizer(fin)
     return fixture
+
+@pytest.fixture(scope="session")
+def config(request):
+    return load_config(request.config.getoption("--target"))
+
+def install_server_configuration(host, username, password):
+    with ftputil.FTPHost(host, username, password) as remote:
+        if remote.path.isfile("config_defaults_inc.php.bak"):
+            remote.remove("config_defaults_inc.php.bak")
+        if remote.path.isfile("config_defaults_inc.php"):
+            remote.rename("config_defaults_inc.php", "config_defaults_inc.php.bak")
+        # почему-то в качестве каталога на удалённом сервере используется тот, в котором находится
+        # файл conftest.py
+        #remote.upload(os.path.join(os.path.dirname(__file__), "resources/config_defaults_inc.php"),
+        #              "config_defaults_inc.php")
+        # поэтому, для того чтобы отработал код - использую абсолютные пути
+        remote.upload("C://xampp//htdocs//mantisbt-2.25.0//resources//config_defaults_inc.php",
+                      "config_defaults_inc.php")
+
+@pytest.fixture(scope="session", autouse=True)
+def configure_server(request, config):
+    install_server_configuration(config['ftp']['host'], config['ftp']['username'], config['ftp']['password'])
+    def fin():
+        restore_server_configuration(config['ftp']['host'], config['ftp']['username'], config['ftp']['password'])
+    request.addfinalizer(fin)
+
+def restore_server_configuration(host, username, password):
+    with ftputil.FTPHost(host, username, password) as remote:
+        if remote.path.isfile("config_defaults_inc.php.bak"):
+            if remote.path.isfile("config_defaults_inc.php"):
+                remote.remove("config_defaults_inc.php")
+            remote.rename("config_defaults_inc.php.bak", "config_defaults_inc.php")
 
 def pytest_addoption(parser):
     parser.addoption("--browser", action="store", default="firefox")

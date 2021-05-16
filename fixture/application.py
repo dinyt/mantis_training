@@ -1,10 +1,12 @@
 from selenium import webdriver
 from fixture.session import SessionHelper
+from fixture.james import JamesHelper
 from fixture.project import ProjectHelper
 
 class Application:
 
-    def __init__(self, browser, base_url):
+    #def __init__(self, browser, base_url):
+    def __init__(self, browser, config, base_url):
         if browser == "firefox":
             self.wd = webdriver.Firefox()
         elif browser == "chrome":
@@ -16,7 +18,11 @@ class Application:
         # implicitly_wait - ожидание тех или иных элементов в браузере
         # self.wd.implicitly_wait(3)
         self.session = SessionHelper(self)
+        self.james = JamesHelper(self)
         self.base_url = base_url
+        temp = config
+        self.config = temp
+        #self.base_url = self.config['web']['baseUrl']
         self.project = ProjectHelper(self)
 
     def is_valid(self):
