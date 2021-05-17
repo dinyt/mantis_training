@@ -5,7 +5,9 @@ class SessionHelper():
 
     def logout(self):
         wd = self.app.wd
-        wd.find_element_by_link_text("Logout").click()
+        #wd.find_element_by_link_text("Logout").click()
+        wd.find_element_by_xpath('//span[@class = "user-info"]').click()
+        wd.find_element_by_xpath('//a[@href = "/mantisbt-2.25.0/logout_page.php"]').click()
 
     def login(self, username, password):
         wd = self.app.wd
